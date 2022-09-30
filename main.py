@@ -131,6 +131,8 @@ if __name__ == "__main__":
     print(" ".join(sys.argv), file=stats_file)
 
     cap = cv2.VideoCapture(args.input_video)
+    tracklet = []
+    prev_tracklet = []
     while True:
         ret, frame = cap.read()
         height, width, channels = frame.shape
@@ -162,14 +164,15 @@ if __name__ == "__main__":
                 crop_image = frame[y1:y1+h, x1:x1+w]
                 tracklet.append(crop_image)
 
-        prev_tracklet = tracklet
-
-        for i in range(len(prev_tracklet)):
-            for j in range(len(tracklet)):
-                if i <= j:
-                    input1 = prev_tracklet[i]
-                    input2 = tracklet[j]
-                    repr_loss = vicreg_main.run(args, input1, input2)
-                    print(repr_loss)
+        if tracklet != []:
+            for i in range(len(prev_tracklet)):
+                print('new i')
+                for j in range(len(tracklet)-1, -1, -1):
+                    if i <= j:
+                        input1 = prev_tracklet[i]
+                        input2 = tracklet[j]
+                        repr_loss = vicreg_main.run(args, input1, input2)
+                        print(i, j, repr_loss)
+            prev_tracklet = tracklet
 
         time.sleep(2)
