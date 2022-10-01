@@ -26,6 +26,8 @@ from yolov4.utils import *
 from yolov4.torch_utils import do_detect
 from yolov4.darknet2pytorch import Darknet
 
+from deep_sort.deepsort import Deepsort_rbc
+
 def get_arguments():
     parser = argparse.ArgumentParser(
         description="Evaluate a pretrained model on ImageNet"
@@ -48,6 +50,7 @@ def get_arguments():
 
     # Checkpoint
     parser.add_argument("--vicreg-pretrained", type=Path, required=True, help="path to pretrained model")
+    parser.add_argument("--resnet-pretrained", type=Path, required=True, help="path to pretrained model")
     parser.add_argument("--exp-dir", required=True, type=Path,
                         metavar="DIR", help="path to checkpoint directory")
 
@@ -56,22 +59,8 @@ def get_arguments():
 
 class VICReg_Main():
     def __init__(self, args):
-        args.dist_url = f"tcp://localhost:{random.randrange(49152, 65535)}"
-        args.ngpus_per_node = torch.cuda.device_count()
-        args.world_size = args.ngpus_per_node
-        self.gpu = 0
-        torch.distributed.init_process_group(
-            backend="nccl",
-            init_method=args.dist_url,
-            world_size=args.world_size,
-            rank=0
-        )
-
-        torch.cuda.set_device(self.gpu)
-        torch.backends.cudnn.benchmark = True
-
-        self.model = VICReg(args).cuda(self.gpu)
-        self.model.cuda(self.gpu)
+        self.model = VICReg(args).cuda()
+        self.model.cuda()
         self.model.eval()
 
 
@@ -122,8 +111,6 @@ class YOLOv4_Main():
 
 if __name__ == "__main__":
     args = get_arguments()
-    yolov4_main = YOLOv4_Main(args)
-    vicreg_main = VICReg_Main(args)
 
     args.exp_dir.mkdir(parents=True, exist_ok=True)
     stats_file = open(args.exp_dir / "stats.txt", "a", buffering=1)
@@ -131,48 +118,25 @@ if __name__ == "__main__":
     print(" ".join(sys.argv), file=stats_file)
 
     cap = cv2.VideoCapture(args.input_video)
+    ret, frame = cap.read()
+    h, w, c = frame.shape
+    print(h, w, c)
+
+    yolov4_main = YOLOv4_Main(args)
+    vicreg_main = VICReg_Main(args)
+    dsort = Deepsort_rbc(vicreg_main.model, w, h, use_cuda=True)
+
     tracklet = []
     prev_tracklet = []
+    c = 0
     while True:
+        c += 1
+        print(c)
         ret, frame = cap.read()
-        height, width, channels = frame.shape
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
         if ret == False:
             print('no video frame')
             break
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         result = yolov4_main.run(frame)
-
-        print('result')
-        for i in result:
-            if i[-1] == 2 or i[-1] == 5 or i[-1] == 7:
-                print(i)
-
-        print('new')
-        tracklet = []
-        for i in result:
-            if i[-1] == 2 or i[-1] == 5 or i[-1] == 7:
-                x1 = int(i[0] * width)
-                y1 = int(i[1] * height)
-                x2 = int(i[2] * width)
-                y2 = int(i[3] * height)
-
-                h = y2 - y1
-                w = x2 - x1
-
-                crop_image = frame[y1:y1+h, x1:x1+w]
-                tracklet.append(crop_image)
-
-        if tracklet != []:
-            for i in range(len(prev_tracklet)):
-                print('new i')
-                for j in range(len(tracklet)-1, -1, -1):
-                    if i <= j:
-                        input1 = prev_tracklet[i]
-                        input2 = tracklet[j]
-                        repr_loss = vicreg_main.run(args, input1, input2)
-                        print(i, j, repr_loss)
-            prev_tracklet = tracklet
-
-        time.sleep(2)
+        tracker = dsort.a_run_deep_sort(frame, result)

@@ -16,7 +16,7 @@ class VICReg(nn.Module):
             zero_init_residual=True
         )
 
-        self.state_dict = torch.load(args.vicreg_pretrained, map_location="cpu")
+        self.state_dict = torch.load(args.resnet_pretrained, map_location="cpu")
         if "model" in self.state_dict:
             self.state_dict = self.state_dict["model"]
             self.state_dict = {
