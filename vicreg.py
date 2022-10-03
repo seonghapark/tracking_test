@@ -34,6 +34,7 @@ class VICReg(nn.Module):
 
         repr_loss = F.mse_loss(x, y)
 
+        '''
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
         y = torch.cat(FullGatherLayer.apply(y), dim=0)
         x = x - x.mean(dim=0)
@@ -55,6 +56,10 @@ class VICReg(nn.Module):
             + self.args.cov_coeff * cov_loss
         )
         return loss, repr_loss, std_loss, cov_loss
+        '''
+
+        return repr_loss
+
 
 def Projector(args, embedding):
     mlp = '8192-8192-8192'
@@ -68,12 +73,11 @@ def Projector(args, embedding):
     layers.append(nn.Linear(f[-2], f[-1], bias=False))
     return nn.Sequential(*layers)
 
-
+'''
 def off_diagonal(x):
     n, m = x.shape
     assert n == m
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
-
 
 class FullGatherLayer(torch.autograd.Function):
     """
@@ -92,3 +96,4 @@ class FullGatherLayer(torch.autograd.Function):
         all_gradients = torch.stack(grads)
         dist.all_reduce(all_gradients)
         return all_gradients[dist.get_rank()]
+'''

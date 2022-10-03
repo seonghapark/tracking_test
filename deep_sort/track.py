@@ -59,17 +59,16 @@ class Track:
         vector is added to this list.
     """
 
-    #def __init__(self, mean, covariance, track_id, n_init, max_age, outclass,
-    def __init__(self, track_id, n_init, max_age, outclass,
+    def __init__(self, mean, covariance, track_id, n_init, max_age, outclass,
                  feature=None):
-        #self.mean = mean
-        #self.covariance = covariance
+        self.mean = mean
+        self.covariance = covariance
         self.track_id = track_id
         self.hits = 1
         self.age = 1
         self.time_since_update = 0
 
-        #self.outclass = outclass
+        self.outclass = outclass
 
         self.state = TrackState.Tentative
         self.features = []
@@ -104,8 +103,7 @@ class Track:
         ret[2:] = ret[:2] + ret[2:]
         return ret
 
-    #def predict(self, kf):
-    def predict(self):
+    def predict(self, kf):
         """Propagate the state distribution to the current time step using a
         Kalman filter prediction step.
         Parameters
@@ -113,12 +111,11 @@ class Track:
         kf : kalman_filter.KalmanFilter
             The Kalman filter.
         """
-        #self.mean, self.covariance = kf.predict(self.mean, self.covariance)
+        self.mean, self.covariance = kf.predict(self.mean, self.covariance)
         self.age += 1
         self.time_since_update += 1
 
-    #def update(self, kf, detection):
-    def update(self, detection):
+    def update(self, kf, detection):
         """Perform Kalman filter measurement update step and update the feature
         cache.
         Parameters
@@ -128,8 +125,7 @@ class Track:
         detection : Detection
             The associated detection.
         """
-        #self.mean, self.covariance = kf.update(
-        #    self.mean, self.covariance, detection.to_xyah())
+        self.mean, self.covariance = kf.update(self.mean, self.covariance, detection.to_xyah())
         self.features.append(detection.feature)
 
         self.hits += 1

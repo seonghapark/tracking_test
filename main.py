@@ -118,14 +118,26 @@ if __name__ == "__main__":
     print(" ".join(sys.argv), file=stats_file)
 
     cap = cv2.VideoCapture(args.input_video)
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
     ret, frame = cap.read()
     h, w, c = frame.shape
     print(h, w, c)
 
     yolov4_main = YOLOv4_Main(args)
+    outclass = []
+    with open('yolov4/coco.names', 'r') as fp:
+        lines = fp.readlines()
+    for line in lines:
+        line = line.rstrip()
+        outclass.append(line)
+
     vicreg_main = VICReg_Main(args)
     dsort = Deepsort_rbc(vicreg_main.model, w, h, use_cuda=True)
 
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter('result.mp4', fourcc, fps, (int(w), int(h)), True)
+
+    print(time.time())
     tracklet = []
     prev_tracklet = []
     c = 0
@@ -140,3 +152,24 @@ if __name__ == "__main__":
 
         result = yolov4_main.run(frame)
         tracker = dsort.a_run_deep_sort(frame, result)
+
+        for track in tracker.tracks:
+#                 print('track.is_confirmed(): ', track.is_confirmed())
+#                 print('track.time_since_update: ', track.time_since_update)
+            if not track.is_confirmed() or track.time_since_update > 1:
+                continue
+
+            bbox = track.to_tlbr() #Get the corrected/predicted bounding box
+            id_num = str(track.track_id) #Get the ID for the particular track.
+            features = track.features #Get the feature vector corresponding to the detection.
+
+            l = bbox[0]  ## x1
+            t = bbox[1]  ## y1
+            r = bbox[2]  ## x2
+            b = bbox[3]  ## y2
+            name = outclass[track.outclass]
+            frame = cv2.putText(frame, f'{id_num}:{name}', (int(l), int(t)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+
+        out.write(frame)
+    out.release()
+    print(time.time())

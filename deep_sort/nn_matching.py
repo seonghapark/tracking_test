@@ -1,6 +1,8 @@
 # vim: expandtab:ts=4:sw=4
 import numpy as np
+from PIL import Image
 
+from torchvision import transforms
 
 def _pdist(a, b):
     """Compute pair-wise squared distance between points in `a` and `b`.
@@ -85,8 +87,29 @@ def _nn_cosine_distance(x, y):
 
 
 def _cal_dissim(x, y, encoder):
-    repr, std, var = encoder.forward(x, y)
-    return repr
+
+    def to_input(i):
+        transform = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize(224),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+            ]
+        )
+        img_tr = transform(i)
+        img_tr = img_tr.unsqueeze(0).cuda()
+        return img_tr
+
+    matrix = np.zeros((len(x), len(y)))
+    for i in range(len(x)):
+        for j in range(len(y)):
+            xx = to_input(x[i])
+            yy = to_input(y[j])
+            repr = encoder.forward(xx, yy)
+            matrix[i][j] = (repr*2500).item()
+
+    return matrix.min(axis=0)
 
 def _similarity(x, y, encoder):
     dissim = _cal_dissim(x, y, encoder)
@@ -114,7 +137,7 @@ class NearestNeighborDistanceMetric(object):
         that have been observed so far.
     """
 
-    def __init__(self, metric, matching_threshold, encoder, budget=None):
+    def __init__(self, encoder, metric, matching_threshold, budget=None):
         '''
         if metric == 'euclidean':
             self._metric = _nn_euclidean_distance

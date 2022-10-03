@@ -37,8 +37,8 @@ class Deepsort_rbc():
         self.height = height
 
         self.encoder = m_deepsort
-        self.metric = nn_matching.NearestNeighborDistanceMetric('cosine', .5, 100, self.encoder)  ## euclidian or cosine
-        self.tracker = Tracker(self.metric, max_iou_distance=0.7, max_age=10, n_init=3)
+        self.metric = nn_matching.NearestNeighborDistanceMetric(self.encoder, 'cosine', .5, 100)  ## euclidian or cosine
+        self.tracker = Tracker(self.encoder, self.metric, max_iou_distance=0.7, max_age=10, n_init=3)
 
         if use_cuda:
             self.gaussian_mask = get_gaussian_mask().cuda()
